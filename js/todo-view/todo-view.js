@@ -11,6 +11,9 @@
 	var Button = Alicatejs.Button;
 	var Component = Alicatejs.Component;
 
+
+	var ENTER_KEY = 13;
+
 	var todoModel = new Model();
 	var todosModel = new Model({data: []});
 
@@ -37,7 +40,7 @@
 		id: 'new-todo',
 		model: todoModel
 	}).on('keyup', function (e) {
-			if (e.keyCode !== 13) {
+			if (e.keyCode !== ENTER_KEY) {
 				return;
 			}
 
@@ -73,7 +76,7 @@
 					return this.visible = that.isEdit;
 				}
 			}).on('keyup', function (e) {
-					if (e.keyCode !== 13) {
+					if (e.keyCode !== ENTER_KEY) {
 						return;
 					}
 
