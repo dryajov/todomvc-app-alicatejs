@@ -9,21 +9,39 @@
 	var Repeater = Alicatejs.Repeater;
 	var Label = Alicatejs.Label;
 	var Button = Alicatejs.Button;
-	var Toggle = Alicatejs.Toggle;
 	var Component = Alicatejs.Component;
 
 	var todoModel = new Model();
 	var todosModel = new Model({data: []});
 
 	var count = 0;
+	var todoItemsList = [];
+
+	var toggleAll = new Button({
+		id: 'toggle-all',
+		isVisible: function () {
+			return this.visible = todoItemsList.length > 0;
+		}
+	}).on('click', function () {
+			todosModel.set([]);
+			for (var i in todoItemsList) {
+				todoItemsList[i].completed = true;
+			}
+			todosModel.set(todoItemsList);
+			footer.render();
+		});
+
 	var todo = new Input({
 		id: 'new-todo',
 		model: todoModel
-	}).on('blur', function () {
-			var curItems = todosModel.get();
+	}).on('keyup', function (e) {
+			if (e.keyCode !== 13) {
+				return;
+			}
+
 			if (this.model.get() &&
 				this.model.get().length > 0) {
-				curItems.push({
+				todoItemsList.push({
 					val: this.model.get(),
 					id: count++,
 					completed: false
@@ -32,11 +50,10 @@
 
 			todoModel.set("");
 			todosModel.set([]);
-			todosModel.set(curItems);
+			todosModel.set(todoItemsList);
 
-			//todos.setVisible(true);
-			todos.render();
-			footer.render();
+			todos.setVisible(true);
+			footer.setVisible(true);
 		});
 
 	var todosList = new Repeater({
@@ -44,8 +61,7 @@
 		model: todosModel,
 		onItemRender: function (item) {
 			var that = this;
-			var isEdit = false;
-			var completed = false;
+			var completed = item.getModelData().completed;
 			var itemModel = new Model({data: item.getModelData().val});
 
 			var editItem = new Input({
@@ -54,43 +70,62 @@
 				isVisible: function () {
 					return this.visible = that.isEdit;
 				}
-			}).on('blur', function () {
+			}).on('keyup', function (e) {
+					if (e.keyCode !== 13) {
+						return;
+					}
+
 					itemText.text = this.getModelData();
 					item.getModelData().val = this.getModelData();
 					that.isEdit = false;
 					this.parent.render();
 				});
 
-			var CompletedToggle = new Toggle({
+			var completedToggle = new Button({
 				id: 'todo-completed',
-				checked: completed
+				checked: completed,
+				selectedClass: 'completed'
 			}).on('click', function () {
 					completed = !completed;
-					this.parent.$el.toggleClass('completed',
-						completed);
-					for (var i in todosModel.get()) {
-						if (todosModel.get()[i].id === item.getModelData().id) {
-							todosModel.get()[i].completed = completed;
+					for (var i in todoItemsList) {
+						if (todoItemsList[i].id === item.getModelData().id) {
+							todoItemsList[i].completed = completed;
+							break;
 						}
 					}
-
 					item.getModelData().completed = completed;
+					this.toggle();
+
+					item.$el.toggleClass('completed',
+						completed);
+
+					footer.render();
 				});
 
-			item.add(CompletedToggle);
+			item.add(completedToggle);
 
 			var itemText = new Label({
 				id: 'todo-item',
 				text: itemModel.get()
-			}).on('click', function (e) {
+			}).on('dblclick', function (e) {
 					this.setVisible(false);
 					that.isEdit = true;
 					editItem.render();
+				}).on('mouseenter', function () {
+					removeTodoVisible = true;
+					removeTodo.render();
+				}).on('mouseexit', function () {
+					removeTodoVisible = false;
+					removeTodo.render();
 				});
 			item.add(itemText);
 
-			item.add(new Button({
-				id: 'todo-remove'
+			var removeTodoVisible = false;
+			var removeTodo = new Button({
+				id: 'todo-remove',
+				isVisible: function () {
+					return removeTodoVisible;
+				}
 			}).on('click', function (e) {
 					var todoItems = todosModel.get();
 					todosModel.set([]);
@@ -102,14 +137,16 @@
 						}
 					}
 					footer.render();
-				}));
+				});
+
+			removeTodo.setVisible(false);
+			item.add(removeTodo);
 
 			item.add(editItem);
 
 			if (item.getModelData().completed) {
 				item.$el.toggleClass('completed',
 					true);
-				CompletedToggle.toggle(true);
 			}
 		}
 	});
@@ -117,35 +154,120 @@
 	var todos = new Container({
 		id: 'todos',
 		children: [
-			todosList
+			todosList,
+			toggleAll
 		],
 		isVisible: function () {
-			return this.visible = todosModel.get()
-			&& todosModel.get().length > 0;
+			return this.visible = todoItemsList.length > 0;
+		}
+	});
+
+	function setActiveClass(active) {
+		for (var i in footer.children) {
+			footer.children[i].$el.removeClass('selected',
+				true);
+		}
+
+		active.$el.addClass('selected');
+	}
+
+	var all = new Component({
+		id: 'all'
+	}).on('click', function () {
+			todosModel.set(todoItemsList);
+			setActiveClass(this);
+		});
+
+	var active = new Component({
+		id: 'active'
+	}).on('click', function () {
+			var active = [];
+			for (var i in todoItemsList) {
+				if (todoItemsList[i].completed === false) {
+					active.push(todoItemsList[i]);
+				}
+			}
+			todosModel.set(active);
+			setActiveClass(this);
+		});
+
+	var completed = new Component({
+		id: 'completed'
+	}).on('click', function () {
+			var completed = [];
+			for (var i in todoItemsList) {
+				if (todoItemsList[i].completed !== false) {
+					completed.push(todoItemsList[i]);
+				}
+			}
+			todosModel.set(completed);
+			setActiveClass(this);
+		});
+
+	var clear = new Component({
+		id: 'clear',
+		isVisible: function () {
+			return countCompleted() > 0;
+		}
+	}).on('click', function () {
+			todosModel.set([]);
+			var len = todoItemsList.length;
+			while (len--) {
+				if (todoItemsList[len].completed === true) {
+					todoItemsList.splice(len, 1);
+				}
+			}
+
+			todosModel.set(todoItemsList);
+			todosList.render();
+			footer.render();
+			todos.render();
+		});
+
+	var remaining = new Label({
+		id: 'left',
+		model: new Model({data: {count: 0}}),
+		text: "{count}",
+		onPreRender: function () {
+			this.model.data.count = countActive();
 		}
 	});
 
 	var footer = new Container({
 		id: 'footer',
 		isVisible: function () {
-			return this.visible = todosModel.get()
-			&& todosModel.get().length > 0;
+			return this.visible = todoItemsList.length > 0;
 		},
 		children: [
-			new Component({
-				id: 'all'
-			}),
-			new Component({
-				id: 'active'
-			}),
-			new Component({
-				id: 'completed'
-			}),
-			new Component({
-				id: 'clear'
-			})
+			all,
+			active,
+			completed,
+			clear,
+			remaining
 		]
 	});
+
+	function countActive() {
+		var count = 0;
+		for (var i in todoItemsList) {
+			if (todoItemsList[i].completed === false) {
+				count++;
+			}
+		}
+
+		return count;
+	}
+
+	function countCompleted() {
+		var count = 0;
+		for (var i in todoItemsList) {
+			if (todoItemsList[i].completed === true) {
+				count++;
+			}
+		}
+
+		return count;
+	}
 
 	module.exports = View.extend({
 		templateName: 'js/todo-view/todo-view.html',
