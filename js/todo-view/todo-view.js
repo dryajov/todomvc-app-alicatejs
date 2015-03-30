@@ -17,21 +17,23 @@
 	var count = 0;
 	var todoItemsList = [];
 
+	var comletedAll = false;
 	var toggleAll = new Button({
 		id: 'toggle-all',
 		isVisible: function () {
 			return this.visible = todoItemsList.length > 0;
 		}
 	}).on('click', function () {
+			comletedAll = !comletedAll;
 			todosModel.set([]);
 			for (var i in todoItemsList) {
-				todoItemsList[i].completed = true;
+				todoItemsList[i].completed = comletedAll;
 			}
 			todosModel.set(todoItemsList);
 			footer.render();
 		});
 
-	var todo = new Input({
+	var todoInput = new Input({
 		id: 'new-todo',
 		model: todoModel
 	}).on('keyup', function (e) {
@@ -111,14 +113,15 @@
 					this.setVisible(false);
 					that.isEdit = true;
 					editItem.render();
-				}).on('mouseenter', function () {
-					removeTodoVisible = true;
-					removeTodo.render();
-				}).on('mouseexit', function () {
-					removeTodoVisible = false;
-					removeTodo.render();
 				});
 			item.add(itemText);
+			item.on('mouseenter', function () {
+				removeTodoVisible = true;
+				removeTodo.render();
+			}).on('mouseexit', function () {
+				removeTodoVisible = false;
+				removeTodo.render();
+			});
 
 			var removeTodoVisible = false;
 			var removeTodo = new Button({
@@ -127,15 +130,16 @@
 					return removeTodoVisible;
 				}
 			}).on('click', function (e) {
-					var todoItems = todosModel.get();
 					todosModel.set([]);
-					for (var i = 0; i <= todoItems.length; i++) {
-						if (todoItems[i].id === item.getModelData().id) {
-							todoItems.splice(i, 1);
-							todosModel.set(todoItems);
+					var i = todoItemsList.length;
+					while (i--) {
+						if (todoItemsList[i].id === item.getModelData().id) {
+							todoItemsList.splice(i, 1);
+							todosModel.set(todoItemsList);
 							break;
 						}
 					}
+					todos.render();
 					footer.render();
 				});
 
@@ -233,6 +237,15 @@
 		}
 	});
 
+	var pluralize = new Label({
+		id: 'pluralize',
+		model: new Model(),
+		onPreRender: function () {
+			var active = countActive();
+			this.model.data = active < 1 || active > 1 ? 'items' : 'item';
+		}
+	});
+
 	var footer = new Container({
 		id: 'footer',
 		isVisible: function () {
@@ -243,7 +256,8 @@
 			active,
 			completed,
 			clear,
-			remaining
+			remaining,
+			pluralize
 		]
 	});
 
@@ -272,7 +286,7 @@
 	module.exports = View.extend({
 		templateName: 'js/todo-view/todo-view.html',
 		children: [
-			todo,
+			todoInput,
 			todos,
 			footer
 		]
