@@ -175,23 +175,33 @@ module.exports = function (todosModel, todoItemsList) {
 			var that = this;
 			var completed = item.getModelData().completed;
 			var itemModel = new Model({data: item.getModelData().val});
+			var isEdit = false;
 
 			var editItem = new Input({
 				id: 'todo-edit',
 				model: itemModel,
 				isVisible: function () {
-					return this.visible = that.isEdit;
+					return this.visible = isEdit;
 				}
 			}).on('keyup', function (e) {
 					if (e.keyCode !== ENTER_KEY) {
 						return;
 					}
-
-					itemText.text = this.getModelData();
-					item.getModelData().val = this.getModelData();
-					that.isEdit = false;
-					this.parent.render();
+					editTodoItem(this);
+				})
+				.on('blur', function () {
+					editTodoItem(this);
 				});
+
+			function editTodoItem(elm) {
+				itemText.text = elm.getModelData();
+				item.getModelData().val = elm.getModelData();
+
+				item.$el.removeClass('editing');
+
+				isEdit = false;
+				elm.parent.render();
+			}
 
 			var completedToggle = new Button({
 				id: 'todo-completed',
@@ -221,7 +231,8 @@ module.exports = function (todosModel, todoItemsList) {
 				text: itemModel.get()
 			}).on('dblclick', function (e) {
 					this.setVisible(false);
-					that.isEdit = true;
+					isEdit = true;
+					item.$el.addClass('editing');
 					editItem.render();
 				});
 			item.add(itemText);
