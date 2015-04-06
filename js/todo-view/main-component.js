@@ -1,4 +1,4 @@
-module.exports = function (todosModel, todoItemsList) {
+module.exports = function (todosModel, todoItemsList, displayFilter) {
 	'use strict';
 
 	var Alicatejs = require('alicatejs');
@@ -11,7 +11,8 @@ module.exports = function (todosModel, todoItemsList) {
 	var Button = Alicatejs.Button;
 	var Component = Alicatejs.Component;
 
-	var ENTER_KEY = 13;
+	var utils = require('./utils');
+	var constants = require('./constants');
 
 	var comletedAll = false;
 	var toggleAll = new Button({
@@ -23,9 +24,12 @@ module.exports = function (todosModel, todoItemsList) {
 			comletedAll = !comletedAll;
 			todosModel.set([]);
 			for (var i in todoItemsList) {
-				todoItemsList[i].completed = comletedAll;
+				if (todoItemsList[i].completed !== comletedAll) {
+					todoItemsList[i].completed = comletedAll;
+				}
 			}
-			todosModel.set(todoItemsList);
+
+			todosModel.set(utils.getItemsToDisplay(todoItemsList, displayFilter.filter));
 		});
 
 	var todosList = new Repeater({
@@ -35,16 +39,12 @@ module.exports = function (todosModel, todoItemsList) {
 			var that = this;
 			var completed = item.getModelData().completed;
 			var itemModel = new Model({data: item.getModelData().val});
-			var isEdit = false;
 
 			var editItem = new Input({
 				id: 'todo-edit',
-				model: itemModel,
-				isVisible: function () {
-					return this.visible = isEdit;
-				}
+				model: itemModel
 			}).on('keyup', function (e) {
-					if (e.keyCode !== ENTER_KEY) {
+					if (e.keyCode !== constants.ENTER_KEY) {
 						return;
 					}
 					editTodoItem(this);
@@ -56,32 +56,25 @@ module.exports = function (todosModel, todoItemsList) {
 			function editTodoItem(elm) {
 				itemText.text = elm.getModelData();
 				item.getModelData().val = elm.getModelData();
-
+				utils.findItemById(item.getModelData().id,
+					todoItemsList).val = elm.getModelData();
 				item.$el.removeClass('editing');
-
-				isEdit = false;
 				elm.parent.render();
 			}
 
 			var completedToggle = new Button({
 				id: 'todo-completed',
-				checked: completed,
+				selected: completed,
 				selectedClass: 'completed'
 			}).on('click', function () {
 					completed = !completed;
-					for (var i in todoItemsList) {
-						if (todoItemsList[i].id === item.getModelData().id) {
-							todoItemsList[i].completed = completed;
-							break;
-						}
-					}
 					item.getModelData().completed = completed;
+					utils.findItemById(item.getModelData().id,
+						todoItemsList).completed = completed;
 					this.toggle();
-
-					item.$el.toggleClass('completed',
-						completed);
-
+					item.$el.toggleClass('completed', completed);
 					todosModel.update();
+					todosModel.set(utils.getItemsToDisplay(todoItemsList, displayFilter.filter));
 				});
 
 			item.add(completedToggle);
@@ -91,9 +84,8 @@ module.exports = function (todosModel, todoItemsList) {
 				text: itemModel.get()
 			}).on('dblclick', function (e) {
 					this.setVisible(false);
-					isEdit = true;
+					editItem.setVisible(true);
 					item.$el.addClass('editing');
-					editItem.render();
 				});
 			item.add(itemText);
 
@@ -111,22 +103,21 @@ module.exports = function (todosModel, todoItemsList) {
 				isVisible: function () {
 					return removeTodoVisible;
 				}
-			}).on('click', function (e) {
+			}).on('click', function () {
 					todosModel.set([]);
 					var i = todoItemsList.length;
 					while (i--) {
 						if (todoItemsList[i].id === item.getModelData().id) {
 							todoItemsList.splice(i, 1);
-							todosModel.set(todoItemsList);
 							break;
 						}
 					}
-					todos.render();
+
+					todosModel.set(utils.getItemsToDisplay(todoItemsList, displayFilter.filter));
 				});
 
 			removeTodo.setVisible(false);
 			item.add(removeTodo);
-
 			item.add(editItem);
 
 			if (item.getModelData().completed) {
@@ -145,6 +136,10 @@ module.exports = function (todosModel, todoItemsList) {
 		isVisible: function () {
 			return this.visible = todoItemsList.length > 0;
 		}
+	});
+
+	todosModel.subscribe(function () {
+		todos.render();
 	});
 
 	return todos;

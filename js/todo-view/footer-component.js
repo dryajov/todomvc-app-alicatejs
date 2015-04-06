@@ -1,4 +1,4 @@
-module.exports = function (todosModel, todoItemsList) {
+module.exports = function (todosModel, todoItemsList, displayFilter) {
 	'use strict';
 
 	var Alicatejs = require('alicatejs');
@@ -8,6 +8,7 @@ module.exports = function (todosModel, todoItemsList) {
 	var Component = Alicatejs.Component;
 
 	var utils = require('./utils');
+	var constants = require('./constants');
 
 	function setActiveClass(active) {
 		for (var i in footer.children) {
@@ -23,32 +24,23 @@ module.exports = function (todosModel, todoItemsList) {
 	}).on('click', function () {
 			todosModel.set(todoItemsList);
 			setActiveClass(this);
+			displayFilter.filter = constants.SHOW_ALL;
 		});
 
 	var active = new Component({
 		id: 'active'
 	}).on('click', function () {
-			var active = [];
-			for (var i in todoItemsList) {
-				if (todoItemsList[i].completed === false) {
-					active.push(todoItemsList[i]);
-				}
-			}
-			todosModel.set(active);
+			todosModel.set(utils.getByState(todoItemsList, false));
 			setActiveClass(this);
+			displayFilter.filter = constants.SHOW_ACTIVE;
 		});
 
 	var completed = new Component({
 		id: 'completed'
 	}).on('click', function () {
-			var completed = [];
-			for (var i in todoItemsList) {
-				if (todoItemsList[i].completed !== false) {
-					completed.push(todoItemsList[i]);
-				}
-			}
-			todosModel.set(completed);
+			todosModel.set(utils.getByState(todoItemsList));
 			setActiveClass(this);
+			displayFilter.filter = constants.SHOW_COMPLETED;
 		});
 
 	var clear = new Component({
@@ -65,16 +57,15 @@ module.exports = function (todosModel, todoItemsList) {
 				}
 			}
 
-			todosModel.set(todoItemsList);
-			footer.render();
+			todosModel.set(utils.getItemsToDisplay(todoItemsList,
+				displayFilter.filter));
 		});
 
 	var remaining = new Label({
 		id: 'left',
-		model: new Model({data: {count: 0}}),
-		text: "{count}",
+		model: new Model({data: 0}),
 		onPreRender: function () {
-			this.model.data.count = utils.countItems(todoItemsList);
+			this.model.data = utils.countItems(todoItemsList, false);
 		}
 	});
 
